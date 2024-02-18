@@ -1,6 +1,8 @@
 package com.lyqing.usercenter.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.lyqing.usercenter.Exception.BusinessException;
+import com.lyqing.usercenter.common.ErrorCode;
 import com.lyqing.usercenter.model.domain.User;
 import com.lyqing.usercenter.service.UserService;
 import com.lyqing.usercenter.mapper.UserMapper;
@@ -33,34 +35,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     private static final String SALT = "lyqing";
 
+    private static final int SUCCESS = 1;
+
     @Override
-    public long userRegister(String userAccount, String userPassword, String checkPassword) {
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
-            // TODO: 转换为自定义错误类型
-            return -1;
+    public long userRegister(String userAccount, String userPassword, String checkPassword, String planetCode) {
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        // 账户长度不小于4，密码长度不小于8
-        if (userAccount.length() < MIN_USER_ACCOUNT_LENGTH || userPassword.length() < MIN_USER_PASSWORD_LENGTH) {
-            return -1;
+        // 账户长度不小于4
+        if (userAccount.length() < MIN_USER_ACCOUNT_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户过短");
         }
+
+        //密码长度不小于8位
+        if (userPassword.length() < MIN_USER_PASSWORD_LENGTH || checkPassword.length() < MIN_USER_PASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码过短");
+        }
+
         // 校验密码
         if (!checkPassword.equals(userPassword)) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次密码输入不同");
+        }
+        // 星球码长度限度
+        if (planetCode.length() > MAX_PLANET_CODE_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "星球编码过长");
         }
         // 账户无特殊字符
-        String validPattern = "^[a-zA-Z0-9_]+$";
+        String validPattern = "^\\w+$";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (!matcher.matches()) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户包含特殊字符");
         }
         // 账户不重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount" ,userAccount);
         Long count = userMapper.selectCount(queryWrapper);
         if (count > 0) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户已存在");
         }
-        
+
+        // 星球码不重复
+        queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("planetCode" ,planetCode);
+        count = userMapper.selectCount(queryWrapper);
+        if (count > 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "该星球编号用户已经被注册");
+        }
+
         // 加密
 
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
@@ -69,9 +90,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         User user = new User();
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
+        user.setPlanetCode(planetCode);
         boolean result = this.save(user);
         if (!result) {
-            return -1;
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "保存用户信息出错");
         }
 
         return user.getId();
@@ -81,19 +103,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public User userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            // TODO 转换为自定义错误类型
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        // 账户长度不小于4，密码长度不小于8
-        if (userAccount.length() < MIN_USER_ACCOUNT_LENGTH || userPassword.length() < MIN_USER_PASSWORD_LENGTH) {
-            return null;
+        // 账户长度不小于4
+        if (userAccount.length() < MIN_USER_ACCOUNT_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户过短");
+        }
+
+        //密码长度不小于8位
+        if (userPassword.length() < MIN_USER_PASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码过短");
         }
 
         // 账户无特殊字符
         String validPattern = "^\\w+$";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (!matcher.matches()) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户包含特殊字符");
         }
 
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
@@ -106,7 +132,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 用户名与密码不匹配
         if (user == null) {
             log.info("user login failed, user account is not matching password");
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误或用户不存在");
         }
         User safeUser = safetyUser(user);
         request.getSession().setAttribute(USER_LOGIN_STATE, safeUser);
@@ -137,7 +163,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @param originUser 未脱敏数据
      * @return safeUser 脱敏后数据
      */
-    private User safetyUser(User originUser) {
+    public User safetyUser(User originUser) {
+
+        if (originUser == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "需脱敏用户为空");
+        }
+
         User safeUser = new User();
         safeUser.setId(originUser.getId());
         safeUser.setUserAccount(originUser.getUserAccount());
@@ -146,12 +177,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safeUser.setUserPassword(null);
         safeUser.setPhone(originUser.getPhone());
         safeUser.setEmail(originUser.getEmail());
+        safeUser.setPlanetCode(originUser.getPlanetCode());
         safeUser.setUserStatus(originUser.getUserStatus());
         safeUser.setAvatarUrl(originUser.getAvatarUrl());
         safeUser.setCreateTime(originUser.getCreateTime());
         safeUser.setUserRole(originUser.getUserRole());
 
         return safeUser;
+    }
+
+    @Override
+    public int userLogout(HttpServletRequest request) {
+        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        return SUCCESS;
     }
 
 }

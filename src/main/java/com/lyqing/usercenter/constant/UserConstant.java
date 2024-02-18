@@ -31,4 +31,9 @@ public interface UserConstant {
      * 密码最短长度
      */
     int MIN_USER_PASSWORD_LENGTH = 8;
+
+    /**
+     * 星球编码最长长度
+     */
+    int MAX_PLANET_CODE_LENGTH = 5;
 }

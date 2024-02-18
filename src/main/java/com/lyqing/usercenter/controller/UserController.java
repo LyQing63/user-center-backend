@@ -1,5 +1,9 @@
 package com.lyqing.usercenter.controller;
 
+import com.lyqing.usercenter.Exception.BusinessException;
+import com.lyqing.usercenter.common.BaseResponse;
+import com.lyqing.usercenter.common.ErrorCode;
+import com.lyqing.usercenter.common.ResultUtils;
 import com.lyqing.usercenter.model.domain.User;
 import com.lyqing.usercenter.model.domain.request.UserLoginRequest;
 import com.lyqing.usercenter.model.domain.request.UserRegisterRequest;
@@ -9,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.lyqing.usercenter.constant.UserConstant.ADMIN_ROLE;
@@ -26,52 +29,91 @@ public class UserController {
     private UserService userService;
 
     @PostMapping("/register")
-    public Long userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
+    public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
         if (userRegisterRequest == null) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求为空");
         }
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
-        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
-            return null;
+        String planetCode = userRegisterRequest.getPlanetCode();
+        if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
 
-        return userService.userRegister(userAccount, userPassword, checkPassword);
+        long result = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 获取当前登录态用户信息
+     *
+     * @param request
+     * @return 脱敏后的用户信息
+     */
+    @GetMapping("/current")
+    public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
+        User currentUser = (User) request.getSession().getAttribute(USER_LOGIN_STATE);
+        if (currentUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        long id = currentUser.getId();
+        if (id <= 0) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        // TODO 检验用户是否合法
+        User user = userService.getById(id);
+        return ResultUtils.success(userService.safetyUser(user));
     }
 
     @PostMapping("/login")
-    public User userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
+    public BaseResponse<User> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         if (userLoginRequest == null) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求为空");
         }
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
 
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
 
-        return userService.userLogin(userAccount, userPassword, request);
+        return ResultUtils.success(userService.userLogin(userAccount, userPassword, request));
     }
 
-    @GetMapping("/search")
-    public List<User> userSearch(String username, HttpServletRequest request) {
-        if (isAdmin(request)) {
-            return  new ArrayList<>();
+    @PostMapping("/logout")
+    public BaseResponse<Integer> userLogout( HttpServletRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求为空");
         }
-        return userService.searchUsersByName(username);
+
+        return ResultUtils.success(userService.userLogout(request));
+    }
+
+    /**
+     * 搜索接口
+     *
+     * @param username
+     * @param request
+     * @return
+     */
+    @GetMapping("/search")
+    public BaseResponse<List<User>> userSearch(String username, HttpServletRequest request) {
+        if (!isAdmin(request)) {
+            throw new BusinessException(ErrorCode.NOT_AUTH, "非管理员,无权限");
+        }
+        return ResultUtils.success(userService.searchUsersByName(username));
     }
 
     @PostMapping("/delete")
-    public boolean userDelete(@RequestBody long id, HttpServletRequest request) {
-        if (isAdmin(request)) {
-            return false;
+    public BaseResponse<Boolean> userDelete(@RequestBody long id, HttpServletRequest request) {
+        if (!isAdmin(request)) {
+            throw new BusinessException(ErrorCode.NOT_AUTH, "非管理员,无权限");
         }
         if (id <= 0) {
-            return false;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "id必须大于零");
         }
-        return userService.removeById(id);
+        return ResultUtils.success(userService.removeById(id));
     }
 
     /**
@@ -82,6 +124,6 @@ public class UserController {
      */
     private boolean isAdmin(HttpServletRequest request) {
         User user = (User) request.getSession().getAttribute(USER_LOGIN_STATE);
-        return user != null && user.getUserRole() != ADMIN_ROLE;
+        return user != null && user.getUserRole() == ADMIN_ROLE;
     }
 }

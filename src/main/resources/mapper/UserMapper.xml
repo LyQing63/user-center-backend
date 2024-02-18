@@ -5,7 +5,7 @@
 <mapper namespace="com.lyqing.usercenter.mapper.UserMapper">
 
     <resultMap id="BaseResultMap" type="com.lyqing.usercenter.model.domain.User">
-            <result property="id" column="id" jdbcType="BIGINT"/>
+            <id property="id" column="id" jdbcType="BIGINT"/>
             <result property="userAccount" column="userAccount" jdbcType="VARCHAR"/>
             <result property="username" column="username" jdbcType="VARCHAR"/>
             <result property="gender" column="gender" jdbcType="TINYINT"/>
@@ -18,6 +18,7 @@
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
             <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
             <result property="userRole" column="userRole" jdbcType="TINYINT"/>
+            <result property="planetCode" column="planetCode" jdbcType="VARCHAR"/>
     </resultMap>
 
     <sql id="Base_Column_List">
@@ -25,6 +26,6 @@
         gender,userPassword,phone,
         email,userStatus,avatarUrl,
         createTime,updateTime,isDelete,
-        userRole
+        userRole,planetCode
     </sql>
 </mapper>

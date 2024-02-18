@@ -2,6 +2,7 @@ package com.lyqing.usercenter.service;
 
 import com.lyqing.usercenter.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.lyqing.usercenter.model.domain.request.UserRegisterRequest;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -16,12 +17,10 @@ public interface UserService extends IService<User> {
      * 注册业务实现
      *
      * @auther lyqing
-     * @param userAccount 账户
-     * @param userPassword 密码
-     * @param checkPassword 校验密码
+     * @param userPassword
      * @return user id
      */
-    long userRegister(String userAccount, String userPassword, String checkPassword);
+    long userRegister(String userAccount, String userPassword, String checkPassword, String planetCode);
 
     /**
      * 登录业务实现
@@ -40,4 +39,19 @@ public interface UserService extends IService<User> {
      * @return List of user 数据
      */
     List<User> searchUsersByName(String username);
+
+    /**
+     * 获取脱敏后的用户信息
+     *
+     * @param originUser 未脱敏用户信息
+     * @return 脱敏后的用户信息
+     */
+    User safetyUser(User originUser);
+
+    /**
+     * 用户注销
+     *
+     * @param request
+     */
+    int userLogout(HttpServletRequest request);
 }
