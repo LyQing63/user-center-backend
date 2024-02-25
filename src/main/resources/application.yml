@@ -1,5 +1,7 @@
 # DataSource Config
 spring:
+  application:
+    name: user-center-backend
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/lyqing

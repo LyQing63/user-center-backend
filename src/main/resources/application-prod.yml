@@ -1,0 +1,10 @@
+# DataSource Config
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/lyqing
+    username: root
+    password: 123456
+  # session 失效时间
+  session:
+    timeout: 86400
