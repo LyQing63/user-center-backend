@@ -2,8 +2,8 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/lyqing
-    username: root
+    url: jdbc:mysql://122.51.79.37:3306/user
+    username: lyqing
     password: 123456
   # session 失效时间
   session:
